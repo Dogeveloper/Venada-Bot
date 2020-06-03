@@ -16,6 +16,7 @@ by Monsieur_Robert
 local discordia = require('discordia')
 local http = require('coro-http')
 local json = require('json')
+local fs = require('fs') -- file system
 local client = discordia.Client()
 local prefix = "-"
 
@@ -49,6 +50,35 @@ function debug.dumptable(o)
        return tostring(o)
     end
  end
+
+ local dbFile = "venadabot.json" -- database file name
+
+  --[[
+     Used for the bot's database. Values can be changed or read from using the table, and they will be automatically be synchronized with the database file.
+
+     Data is a proxy table, so new values should never be entered into it without calling the metamethods below.
+ ]]
+
+ -- but first, create the database file on startup if it doesn't already exist.
+if fs.existsSync(dbFile) == false then
+    fs.openSync(dbFile, "w") -- this will yield the script until the file is created
+end
+
+ -- configure the data proxy table to sync with the database file
+ local data = setmetatable({}, {
+    __index = function(tab, key) -- on file read
+        fs.open(dbFile, "r+")
+        return json.parse(fs.readFileSync(dbFile))[key] or {}
+    end,
+    __newindex = function(tab, key, value) -- on file write
+       local oldData = json.parse(fs.readFileSync(dbFile)) or {}
+       oldData[key] = value
+       fs.writeFileSync(dbFile, oldData)
+    end
+    
+ })
+
+print(data.version)
 
 --[[
     Lua implementation of the ternary operator. Only supports two values, the first one if true and the second one if false.
