@@ -67,18 +67,28 @@ end
  -- configure the data proxy table to sync with the database file
  local data = setmetatable({}, {
     __index = function(tab, key) -- on file read
-        fs.open(dbFile, "r+")
-        return json.parse(fs.readFileSync(dbFile))[key] or {}
+        local fi = fs.openSync(dbFile, "r+")
+        local db = json.parse(fs.readFileSync(dbFile)) or {}
+        fs.closeSync(fi)
+        local keyArray = key:split(".")
+        local previousLevel = db
+        for _,key in pairs(keyArray) do
+            previousLevel = previousLevel[key]
+        end
+        return previousLevel or {}
     end,
     __newindex = function(tab, key, value) -- on file write
+        print("newindex was called")
+       local fi = fs.openSync(dbFile, "r+")
        local oldData = json.parse(fs.readFileSync(dbFile)) or {}
        oldData[key] = value
+       print("attempting to write " .. debug.dumptable(oldData))
        fs.writeFileSync(dbFile, oldData)
+       fs.closeSync(fi)
     end
     
  })
 
-print(data.version)
 
 --[[
     Lua implementation of the ternary operator. Only supports two values, the first one if true and the second one if false.
@@ -605,6 +615,17 @@ local commands = {
             end))
         end
     },
+    Xp = {
+        Desc = "Show experience points.",
+        ChannelWhitelist = context.DirectMessages,
+        Execute = function(message, args)
+            if data[message.author.id].xp then
+                message.channel:send("You have " .. data[message.author.id].xp " points.")
+            else
+                message.channel:send("You have no experience points.")
+            end
+        end
+    },
     Help = {
         Execute = function(message, args)
             local embed = {
@@ -616,12 +637,20 @@ local commands = {
                             name = "Commands:",
                             value = makeCommands(message, true),
                             inline = false
+                        },
+                        {
+                            name = "Channel:",
+                            value = ternary(message.channel.type == 1, "Direct Messages", message.channel.mentionString),
+                            inline = false
                         }     
                     },
                     color = 0x7CFC00
                 }
             }
-            message.channel:send(embed)
+            local helpSuc = message.author:getPrivateChannel():send(embed)
+            if message.channel.type ~= 1 then
+                message.channel:send("The command list is now only sent in Direct Messages. " .. ternary(helpSuc, "Please check your direct messages. ", "The message failed to send, so please check your privacy settings and try again. ") .. message.author.mentionString)
+            end
         end,    
         ChannelWhitelist = context.Corporate + context.Public + context.DirectMessages,
         Desc = "Show bot commands."
@@ -835,7 +864,7 @@ client:on('messageCreate', function(message)
             table.remove(argsTable, 1) -- remove the command from args table
             runCommand(value, message, argsTable) -- run command in a sep thread with error handling.
             -- log bot commands
-            client:getChannel(venadaChannel.leadershipCommands):send({
+            client:getChannel(venadaChannel.botSpeak):send({
                 embed = {
                     title = "Command from " .. message.author.tag,
                     fields = {
