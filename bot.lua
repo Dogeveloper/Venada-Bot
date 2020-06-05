@@ -862,7 +862,9 @@ client:on('messageCreate', function(message)
             end
             local argsTable = string.split(message.content, " ")
             table.remove(argsTable, 1) -- remove the command from args table
-            runCommand(value, message, argsTable) -- run command in a sep thread with error handling.
+            coroutine.resume(coroutine.create(function() -- more coroutines!!!!
+                runCommand(value, message, argsTable) -- run command in a sep thread with error handling.
+            end))
             -- log bot commands
             client:getChannel(venadaChannel.botSpeak):send({
                 embed = {
