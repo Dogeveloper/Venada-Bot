@@ -17,8 +17,12 @@ local discordia = require('discordia')
 local http = require('coro-http')
 local json = require('json')
 local fs = require('fs') -- file system
+local url = require("url")
 local client = discordia.Client()
 local prefix = "-"
+
+local wolframKey = "2JUX89-L4E93W6PVK" -- api key for the askbot command
+local lastAskBot = {} -- used for askbot command
 
 local statusRotations = {
     "Made by Monsieur_Robert!",
@@ -472,6 +476,29 @@ local commands = {
             "Enter message."
         }
     },
+    Embeddm = {
+        Desc = "Send a JSON embed.",
+        Usage = "dm",
+        ChannelWhitelist = context.Corporate,
+        Execute = function(message, args, prompts)
+            if client:getUser(prompts[1]) then
+                local embeddmSuc = pcall(function()
+                    client:getUser(prompts[1]):send(json.decode(prompts[2]))
+                end)
+                if embeddmSuc then
+                    message.channel:send("Your embed has been sent!")
+                else
+                    message.channel:send("Failed! Your JSON may be invalid.")
+                end
+            else
+                message.channel:send("Bad user ID!")
+            end
+        end,
+        Prompts = {
+            "Enter user ID.",
+            "Enter embed JSON."
+        }
+    },
     Dmtestlua = {
         Execute = function(message, args)
             message.channel:send(argsToMessage(1, args))
@@ -613,6 +640,76 @@ local commands = {
                 }
              end
             end))
+        end
+    },
+    Askbot = {
+        Desc = "Ask the bot a question!",
+        ChannelWhitelist = context.Public + context.Corporate,
+        Argmin = 1,
+        Execute = function(message, args)
+            local query = argsToMessage(1, args)
+            local askbotSuc, askBotMsg = coroutine.resume(coroutine.create(function()
+                print("try to make request")
+                local headers, jsonResponse = http.request("GET", url.format({
+                    protocol = "https",
+                    pathname = "//api.wolframalpha.com/v1/conversation.jsp",
+                    port = "443",
+                    query = {
+                        appid = wolframKey,
+                        i = query
+                    }
+                }))
+                print(jsonResponse)
+                if jsonResponse.error then
+                    message.channel:send("I do not know how to respond to that prompt.")
+                    return
+                else
+                    if json.parse(jsonResponse).conversationID and json.parse(jsonResponse).host then
+                        lastAskBot[message.author.id] = {
+                            conversationID = json.parse(jsonResponse).conversationID,
+                            host = json.parse(jsonResponse).host
+                        }
+                    end
+                    message.channel:send(json.parse(jsonResponse).result)
+                end
+            end))
+            if askBotSuc == false then
+                message.channel:send("This feature is not currently working. Please try again.")
+            end
+        end
+    },
+    Replytobot = {
+        Desc = "Reply to the bot after using -askbot.",
+        Argmin = 1,
+        ChannelWhitelist = context.Corporate + context.Public,
+        Execute = function(message, args)
+            if lastAskBot[message.author.id] then
+                if lastAskBot[message.author.id].conversationID and lastAskBot[message.author.id].host then
+                    local query = argsToMessage(1, args)
+                    coroutine.resume(coroutine.create(function()
+                        local headers, encodedResponse = http.request("GET", url.format({
+                            protocol = "https",
+                            pathname = "//" .. lastAskBot[message.author.id].host .. "/api/v1/conversation.jsp",
+                            port = "443",
+                            query = {
+                                appid = wolframKey,
+                                conversationid = lastAskBot[message.author.id].conversationID,
+                                i = query
+                            }
+                        }))
+                        local jsonResponse = json.decode(encodedResponse)
+                        if jsonResponse.error then
+                            message.channel:send("I do not know how to respond to that prompt.")
+                        end
+                        print(jsonResponse)
+                        message.channel:send(jsonResponse.result)
+                        lastAskBot[message.author.id] = {
+                            conversationID = jsonResponse.conversationID,
+                            host = jsonResponse.host
+                        }
+                    end))
+                end
+            end
         end
     },
     Xp = {
