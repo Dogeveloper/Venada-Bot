@@ -477,8 +477,8 @@ local commands = {
         }
     },
     Embeddm = {
-        Desc = "Send a JSON embed.",
-        Usage = "dm",
+        Desc = "Send a JSON embed. Advanced command for advanced people.",
+        Usage = "embeddm",
         ChannelWhitelist = context.Corporate,
         Execute = function(message, args, prompts)
             if client:getUser(prompts[1]) then
@@ -496,6 +496,29 @@ local commands = {
         end,
         Prompts = {
             "Enter user ID.",
+            "Enter embed JSON."
+        }
+    },
+    Embed = {
+        Desc = "Send a JSON embed. Advanced command for advanced people.",
+        Usage = "embed",
+        ChannelWhitelist = context.Corporate,
+        Execute = function(message, args, prompts)
+            if client:getChannel(prompts[1]) then
+                local embeddmSuc = pcall(function()
+                    client:getChannel(prompts[1]):send(json.decode(prompts[2]))
+                end)
+                if embeddmSuc then
+                    message.channel:send("Your embed has been sent!")
+                else
+                    message.channel:send("Failed! Your JSON may be invalid.")
+                end
+            else
+                message.channel:send("Bad channel ID!")
+            end
+        end,
+        Prompts = {
+            "Enter channel ID.",
             "Enter embed JSON."
         }
     },
