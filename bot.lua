@@ -522,6 +522,29 @@ local commands = {
             "Enter embed JSON."
         }
     },
+    Getembeds = {
+        Desc = "Get the source code for a JSON embed message. Advanced command for advanced people.",
+        Usage = "getembeds <channel id> <message id>",
+        Argmin = 2,
+        ChannelWhitelist = context.Corporate,
+        Execute = function(message, args)
+            if not client:getChannel(args[1]) then
+                message.channel:send("Channel not found.")
+                return
+            end
+            if client:getChannel(args[1]):getMessage(args[2]) then
+                local msg = client:getChannel(args[1]):getMessage(args[2])
+                if msg.embeds then
+                    message.channel:send("**Embeds for message ID " .. args[2] .. ":** This not the EXACT source code you need to send this exact embed, please keep that in mind. You can make the code easier to read here: https://codebeautify.org/jsonviewer")
+                    message.channel:send("```" .. json.encode(msg.embeds) .. "```")
+                else
+                    message.channel:send("No embeds found.")
+                end
+            else
+                message.channel:send("Bad message ID!")
+            end
+        end
+    },
     Dmtestlua = {
         Execute = function(message, args)
             message.channel:send(argsToMessage(1, args))
@@ -777,6 +800,27 @@ local commands = {
     }
 }
 
+local autoAddReactions = {
+    {
+        Channel = "721159435724259408",
+        Emojis = {
+            "545394455205904386",
+            "545394544271818773",
+            "722152333647020124"
+        }
+    }
+}
+
+local reactionEvents = {
+    {
+        Channel = "721159435724259408",
+        Reaction = "722152333647020124",
+        Execute = function(reaction, userId)
+            reaction.message:delete()
+        end
+    }
+}
+
 local function isCommandInContext(channelId, command, message) -- returns true if a command can be used in a certain channel, uses the message where -help was sent.
     for i,v in pairs(command.ChannelWhitelist) do
         if v == channelId then
@@ -855,7 +899,32 @@ local function runCommand(command, message, args, prompts)
     end
 end
 
+client:on('reactionAdd', function(reaction, userid)
+    for _,event in pairs(reactionEvents) do
+        if event.Channel == reaction.message.channel.id then
+            if reaction.emojiId then
+                if reaction.emojiId == event.Reaction then
+                    if userid == client.user.id then return end
+                    local reactionAddSuc, reactionAddMsg = pcall(function()
+                        event.Execute(reaction, userid)
+                    end)
+                    print(reactionAddSuc, reactionAddMsg)
+                end
+            end
+        end
+    end
+end)
+
 client:on('messageCreate', function(message)
+    for _,reactions in pairs(autoAddReactions) do
+        if message.channel.id == reactions.Channel then
+            for _,emojiid in pairs(reactions.Emojis) do
+                pcall(function()
+                    message:addReaction(client:getEmoji(emojiid))
+                end)
+            end
+        end
+    end
     if prompts[message.author.id] then
         if prompts[message.author.id].Channel ~= message.channel.id then
             return
