@@ -122,10 +122,11 @@ local function argsToMessage(indexToRemove, args)
 end
 
 local venadaChannel = {
-    corporateCommands = "702638206939824249",
-    leadershipCommands = "712433741523320932",
+    corporateCommands = "729830303840993281",
+    leadershipCommands = "729831222955475095",
     botCommands = "543854237013114952",
     botSpeak = "703365194994417864",
+    inactiveNotices = "729854839663624243",
     directMessages = "-1" -- magic int used to represent something sent through a direct message.
 }
 
@@ -146,7 +147,7 @@ local context = { -- specifies what channels a command can run in, depending on 
 }
 
 local venadaRole = {
-    MiddleRank = "618295822005698560",
+    MiddleRank = "618296275393314838",
     HighRank = "618295822005698560",
     SuperRank = "618295361223786508",
     Developer = "618293405931405315"
@@ -274,8 +275,8 @@ local commands = {
         ChannelWhitelist = context.DirectMessages,
         Execute = function(message, args, prompts)
             print(debug.dumptable(prompts))
-            if(client:getChannel("705537946480279612")) then
-                local channel = client:getChannel("705537946480279612")
+            if(client:getChannel(venadaChannel.inactiveNotices)) then
+                local channel = client:getChannel(venadaChannel.inactiveNotices)
                 channel:send{
                     embed = {
                         title = "Inactivity Notice from " .. message.author.tag,
@@ -562,7 +563,7 @@ local commands = {
         Usage = "ban <user id> <reason>",
         ChannelWhitelist = context.Corporate + context.Public,
         PermissionValidator = function(message)
-            return memberHasRoles(message.member, {venadaRole.HighRank, venadaRole.SuperRank, venadaRole.Developer})
+            return false
         end,
         Argmin = 2,
         Execute = function(message, args)
@@ -611,7 +612,7 @@ local commands = {
         Usage = "unban <user id> <reason>",
         ChannelWhitelist = context.Corporate,
         PermissionValidator = function(message)
-            return memberHasRoles(message.member, {venadaRole.SuperRank, venadaRole.Developer})
+            return false
         end,
         Argmin = 2,
         Execute = function(message, args)
@@ -633,6 +634,7 @@ local commands = {
     Randcat = {
         Desc = "Show a random cat.",
         ChannelWhitelist = context.Public + context.Corporate + context.DirectMessages,
+        PermissionValidator = function() return false end,
         Execute = function(message, args)
             local suc, msg = coroutine.resume(coroutine.create(function()
                 local headers, response = http.request("GET", "http://aws.random.cat/meow")
@@ -693,6 +695,7 @@ local commands = {
         ChannelWhitelist = context.Public + context.Corporate,
         Argmin = 1,
         Execute = function(message, args)
+            message.channel:send("You asked the bot a question. Please wait while the bot attempts to answer it. If you ask it a question it can't answer, it may signal its disapproval at you with no response.")
             local query = argsToMessage(1, args)
             local askbotSuc, askBotMsg = coroutine.resume(coroutine.create(function()
                 print("try to make request")
@@ -761,6 +764,7 @@ local commands = {
     Xp = {
         Desc = "Show experience points.",
         ChannelWhitelist = context.DirectMessages,
+        PermissionValidator = function() return false end,
         Execute = function(message, args)
             if data[message.author.id].xp then
                 message.channel:send("You have " .. data[message.author.id].xp " points.")
