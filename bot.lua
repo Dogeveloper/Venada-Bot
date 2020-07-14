@@ -125,7 +125,7 @@ local venadaChannel = {
     corporateCommands = "729830303840993281",
     leadershipCommands = "729831222955475095",
     botCommands = "543854237013114952",
-    botSpeak = "703365194994417864",
+    botSpeak = "729854122341433405",
     inactiveNotices = "729854839663624243",
     directMessages = "-1" -- magic int used to represent something sent through a direct message.
 }
